@@ -1,0 +1,94 @@
+#define BLYNK_TEMPLATE_ID "TMPL3yxYauVL7"
+#define BLYNK_TEMPLATE_NAME "Gas and Smoke Detection"
+#define BLYNK_AUTH_TOKEN "QzmfhoRYGKa65-FHht904wT2HiJJm6yC"
+
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+char ssid[] = "**********";    
+char pass[] = "**********"; 
+
+#define MQ2_PIN A0
+
+BlynkTimer timer;
+
+// Notification control
+bool gasNotified = false;
+bool smokeNotified = false;
+
+void sendSensor()
+{
+  int sensorValue = analogRead(MQ2_PIN);
+  float value = (sensorValue / 1023.0) * 100.0; // Convert to %
+
+  String gasStatus, smokeStatus;
+
+  // ------------------- SMOKE DETECTION -------------------
+  if (value < 25)
+  {
+    smokeStatus = "Safe";
+    smokeNotified = false;      // Reset
+  }
+  else if (value >= 25 && value <= 60)
+  {
+    smokeStatus = "Warning";
+  }
+  else
+  {
+    smokeStatus = "Smoke Detected!";
+    if (!smokeNotified)
+    {
+      Blynk.logEvent("smoke_alert", "🔥 Smoke Detected!");
+      smokeNotified = true;
+    }
+  }
+
+  // ------------------- GAS DETECTION -------------------
+  if (value < 35)
+  {
+    gasStatus = "Safe";
+    gasNotified = false;        // Reset
+  }
+  else if (value >= 35 && value <= 75)
+  {
+    gasStatus = "Warning";
+  }
+  else
+  {
+    gasStatus = "Gas Detected!";
+    if (!gasNotified)
+    {
+      Blynk.logEvent("gas_alert", "⚠️ Gas Detected!");
+      gasNotified = true;
+    }
+  }
+
+  // ------------------- Serial Output -------------------
+  Serial.print("Value: ");
+  Serial.print(value);
+  Serial.print("% | Smoke: ");
+  Serial.print(smokeStatus);
+  Serial.print(" | Gas: ");
+  Serial.println(gasStatus);
+
+  // ------------------- Blynk Output -------------------
+  Blynk.virtualWrite(V0, value);        // Main gauge
+  Blynk.virtualWrite(V1, smokeStatus);  // Smoke status
+  Blynk.virtualWrite(V2, gasStatus);    // Gas status
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  timer.setInterval(2000L, sendSensor);
+}
+
+void loop()
+{
+  Blynk.run();
+  timer.run();
+}
+
